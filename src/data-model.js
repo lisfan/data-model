@@ -6,33 +6,117 @@
  */
 
 import validation from '@~lisfan/validation'
-import Logger from '@~lisfan/validation'
-// 数据模型的实例计数器
+import Logger from '@~lisfan/logger'
 
+// 数据模型的实例计数器
 let counter = 0
+
 /**
  * 私有方法集合
  * @private
  */
 const _actions = {
+  // 可变与不可变联合的键列表
+  getUnionStructure(self) {
+    const ctr = self.constructor
+
+    return {
+      ...ctr.STRUCTURE,
+      ...ctr.IMMUTABLE_STRUCTURE
+    }
+  },
   /**
-   * 设置新值，新值不存在时，使用默认值代替
-   * @param {*} newValue - 新值
-   * @param {*} defaultValue - 新值不存在时，使用默认值替代
-   * @private
-   * @return {*} 返回新值，或原始值
+   * 初始化数据
+   * @param self
+   * @param data
    */
-  setValue(newValue, defaultValue) {
-    if (!_.isUndefined(newValue)) {
-      return newValue
+  initData(self, data) {
+    const ctr = self.constructor
+
+    const UNION_STRUCTURE = _actions.getUnionStructure(self)
+
+    Object.keys(UNION_STRUCTURE).forEach((key) => {
+      if (key in ctr.IMMUTABLE_STRUCTURE) {
+        self._data[key] = _actions.getValue(ctr.IMMUTABLE_STRUCTURE[key])
+      } else {
+        self._data[key] = _actions.getValue(data[key], ctr.STRUCTURE[key])
+      }
+
+      // 如果数据不可变，则不可重设该值
+      // 建立事件取值器，和赋值器
+      Object.defineProperty(self, key, {
+        get: function reactiveGetter() {
+          return self._data[key]
+        },
+
+        set: function reactiveSetter(val) {
+          self._data[key] = val
+        }
+      })
+    })
+  },
+  /**
+   * 获取结果值
+   * - 若新值存在，则使用新值
+   * - 若新值不存为undefined，则使用默认值代替
+   *
+   * @param {*} newVal - 新值
+   * @param {*} defaultVal - 新值不存在时，使用默认值替代
+   * @private
+   * @returns {*} 返回新值，或原始值
+   */
+  getValue(newVal, defaultVal) {
+    if (!validation.isUndefined(newVal)) {
+      return newVal
     }
 
+    return _actions.cloneDeep(defaultVal)
+  },
+  /**
+   * 深拷贝数据
+   * 如果是数组或者纯对象，则进行深拷贝，否则返回原数据
+   *
+   * @param {*} val - 数据
+   * @returns {*}
+   */
+  cloneDeep(val) {
     // 判断一下默认值是否为数组和对象，若是则创建一份拷贝
-    if (_.isArray(defaultValue) || _.isObject(defaultValue)) {
-      return _.cloneDeep(defaultValue)
+    if (!validation.isArray(val) && !validation.isPlainObject(val)) {
+      return val
     }
 
-    return defaultValue
+    let newVal = {}
+    Object.entries(val).forEach(([key, value]) => {
+      // 如果是对象或数组，则进行递归
+      newVal[key] = _actions.cloneDeep(value)
+    })
+
+    return validation.isArray(val) ? Object.values(newVal) : newVal
+  },
+
+  // 提取存在于实例结构中的数据
+  pickData(self, data) {
+    const UNION_STRUCTURE_LIST = Object.keys(_actions.getUnionStructure(self))
+
+    const pickedData = {}
+    Object.entries(data).forEach(([key, value]) => {
+      // 存在该键时，取出
+      if (UNION_STRUCTURE_LIST.indexOf(key) >= 0) {
+        pickedData[key] = value
+      }
+    })
+
+    return pickedData
+  },
+  /**
+   * 批量设置实例数据
+   *
+   *
+   * @param {object} data - 接口数据
+   * @returns {*} 返回实例自身
+   */
+  setData(self, data) {
+
   },
   /**
    * 数据更新时间戳
@@ -81,7 +165,7 @@ class DataModel {
    * 定义数据模型结构及初始默认值
    * [注] 继承类需要覆盖此静态属性
    *
-   * @since 1.0.0
+   * @since 1.1.0
    * @static
    * @override
    */
@@ -91,15 +175,11 @@ class DataModel {
    * 定义数据模型结构中不可变的数据字段
    * [注] 继承类需要覆盖此静态属性
    *
-   * @since 1.0.0
+   * @since 1.1.0
    * @static
    * @override
    */
-  static INVARIANT_STRUCTURE = {}
-
-  $uid = ++counter // 该实例的唯一id(生成后就不再发生变化)
-  $createdTimeStamp = new Date().getTime()  // 实例初始化的时间戳
-  $updatedTimeStamp = new Date().getTime()  // 每次数据更新时，时间戳就会更新
+  static IMMUTABLE_STRUCTURE = {}
 
   /**
    * 构造函数
@@ -116,23 +196,10 @@ class DataModel {
       ...ctr.options
     })
 
-    // 使用给定的数据进行实例数据结构初始化
-    const STRUCTURE = {
-      ...ctr.STRUCTURE,
-      ...ctr.INVARIANT_STRUCTURE
-    }
-
     // 处理数据
     const transformData = this._transformData(data)
 
-    Object.keys(STRUCTURE).forEach((key) => {
-      // 如果数据不可变，则不可重设该值
-      if (key in ctr.INVARIANT_STRUCTURE) {
-        this[key] = _actions.setValue(ctr.INVARIANT_STRUCTURE[key])
-      } else {
-        this[key] = _actions.setValue(transformData[key], ctr.STRUCTURE[key])
-      }
-    })
+    _actions.initData(this, transformData)
 
     return this
   }
@@ -146,12 +213,45 @@ class DataModel {
   _logger = undefined
 
   /**
+   * 数据存储集合
+   *
+   * @since 1.1.0
+   * @private
+   */
+  _data = {}
+  _computedWatchers = {}
+
+  /**
+   * 实例唯一ID
+   *
+   * @since 1.1.0
+   * @private
+   */
+  $uid = counter++
+
+  /**
+   * 实例创始化时间戳
+   *
+   * @since 1.1.0
+   * @private
+   */
+  $createdTimeStamp = new Date().getTime()
+
+  /**
+   * 实例数据更新时间戳
+   *
+   * @since 1.1.0
+   * @private
+   */
+  $updatedTimeStamp = new Date().getTime()
+
+  /**
    * 获取打印器实例的名称标记
    *
    * @since 1.1.0
    * @getter
    * @readonly
-   * @return {string}
+   * @returns {string}
    */
   get $name() {
     return this._logger.$name
@@ -163,10 +263,26 @@ class DataModel {
    * @since 1.1.0
    * @getter
    * @readonly
-   * @return {boolean}
+   * @returns {boolean}
    */
   get $debug() {
     return this._logger.$debug
+  }
+
+  /**
+   * 获取实例模型数据集合
+   *
+   * @returns {object}
+   */
+  get $data() {
+    const UNION_STRUCTURE = _actions.getUnionStructure(this)
+
+    let getedData = {}
+    Object.keys(UNION_STRUCTURE).forEach((key) => {
+      getedData[key] = this[key]
+    })
+
+    return getedData
   }
 
   /**
@@ -177,14 +293,14 @@ class DataModel {
    * @since 1.1.0
    * @param {string} key - 键名
    * @param {*} value - 数据值
-   * @return {DataModel}
+   * @returns {DataModel}
    */
   setValue(key, value) {
     // 获取继承类构造函数
     const ctr = this.constructor
 
     // 若键名存在于不可变枚举中，则不覆盖，并抛出提示
-    if (key in ctr.INVARIANT_STRUCTURE) {
+    if (key in ctr.IMMUTABLE_STRUCTURE) {
       this._logger.warn(`(${key}) key is not writable! please check.`)
       return this
     }
@@ -194,7 +310,7 @@ class DataModel {
       return this
     }
 
-    this[key] = value
+    this._data[key] = value
     this.$updatedTimeStamp = new Date().getTime()
 
     return this
@@ -206,24 +322,26 @@ class DataModel {
    * [继承类可以覆盖此方法，进行自定义]
    *
    * @param {object} data - 接口数据
-   * @return {*} 返回转换后的数据
+   * @returns {*} 返回转换后的数据
    */
   _transformData(data) {
     return data
   }
 
   /**
-   * 设置实例数据
-   * [继承类可以覆盖此方法，进行自定义]
+   * 更新数据
+   * 如果传入的数据属于该实例的数据模型字段，则过滤
    *
-   * 若数据中的键名不存在于实例中，则进行Vue.set
-   *
-   * @param {object} data - 接口数据
-   * @return {*} 返回实例自身
+   * @param {object} data - 新数据
+   * @returns {DataModel}
    */
-  _setData(data) {
-    Object.entries(data).forEach(([key, value]) => {
-      // 判断是否存在该字段，若存在，则进行更新，若不存在，则进行重新监察
+  updateData(data) {
+    const transformData = this._transformData(data)
+
+    // 过滤掉不存于数据模型中的字段
+    const pickedData = _actions.pickData(this, transformData)
+
+    Object.entries(pickedData).forEach(([key, value]) => {
       this.setValue(key, value)
     })
 
@@ -231,70 +349,72 @@ class DataModel {
   }
 
   /**
-   * 获取业务对象的数据结构
-   * [继承类可以覆盖此方法，进行自定义]
-   *
-   * @return {object} 返回实例数据结构
+   * 计算值
    */
-  _getData() {
-    let data = {}
-    Object.keys(this.constructor.STRUCTURE).forEach((key) => {
-      data[key] = this[key]
+  compute(key, done) {
+    // this._computedWatchers[key] = done
+    const definedProperty = done
+
+    if (validation.isFunction(done)) {
+      definedProperty.get = done
+      definedProperty.set = () => {
+      }
+    }
+
+    const UNION_STRUCTURE = _actions.getUnionStructure(this)
+
+    // 存在时，提示错误
+    if (Object.keys(UNION_STRUCTURE).indexOf(key) >= 0) {
+      this._logger.error(`compute key (${key}) has existed! please use other name`)
+    }
+
+    // 如果数据不可变，则不可重设该值
+    // 建立事件取值器，和赋值器
+    // todo 警告watch的值与别的值相同了
+    Object.defineProperty(this, key, {
+      get: function computeGetter() {
+        return definedProperty.get.call(this)
+      },
+      set: function computeSetter(val) {
+        return definedProperty.set.call(this, val)
+      }
     })
 
-    return data
+    return this
   }
 
   /**
-   * 填充数据
-   * - 依赖于实例的数据模型，会过滤不存在于实例中的数据模型字段
-   * - [注]会全部替换为新数据，不会合并
-   * @param {object} newData - 接口数据
-   * @return {*} 返回实例自身
-   */
-  fillData(newData) {
-    const reflectedData = _actions.reflectData(this.constructor.REFLECT_MODEL, newData)
-
-    const transformData = this._transformData(reflectedData)
-
-    // 过滤掉不存于数据模型中的字段
-    const pickedData = _.pick(transformData, Object.keys(this.constructor.STRUCTURE))
-
-    return this._setData(pickedData)
-  }
-
-  /**
-   * 更新数据
-   * - 依赖于实例的数据模型，会过滤不存在于实例中的数据模型字段
+   * 数据变动检测
+   * 被重新调用的时候
    *
-   * @param {object} newData - 新数据
-   * @return {*} 返回实例自身
+   * @param key
+   * @param done
    */
-  updateData(newData) {
-    const reflectedData = _actions.reflectData(this.constructor.REFLECT_MODEL, newData)
-
-    const transformData = this._transformData(reflectedData)
-
-    // 过滤掉不存于数据模型中的字段
-    const pickedData = _.pick(transformData, Object.keys(this.constructor.STRUCTURE))
-
-    return this._setData(_.merge(this._getData(), pickedData))
+  watch(key, done) {
+        
   }
 
-  /**
-   * 覆盖数据
-   * - 新数据中不存在的键名，内部会通过Vue.set设置，建立响应
-   * @param {object} newData - 新数据
-   * @return {*} 返回实例自身
-   */
-  mergeData(newData) {
-    const reflectedData = _actions.reflectData(this.constructor.REFLECT_MODEL, newData)
-
-    const transformData = this._transformData(reflectedData)
-
-    return this._setData(_.merge(this._getData(), transformData))
-  }
-
+  // /**
+  //  * 批量更新数据
+  //  * [注] 已有值的字段不会被替换数据
+  //  * - 依赖于实例的数据模型，过滤不存的数据模型字段
+  //  *
+  //  * @param {object} data - 新数据
+  //  * @returns {DataModel}
+  //  */
+  // updateData(data) {
+  //   const transformData = this._transformData(data)
+  //
+  //   // 过滤掉不存于数据模型中的字段
+  //   const pickedData = _actions.pickData(this, transformData)
+  //
+  //   Object.entries(pickedData).forEach(([key, value]) => {
+  //     // 判断是否存在该字段，若存在，则不更新该字段，
+  //     this.setValue(key, value)
+  //   })
+  //
+  //   return this
+  // }
 }
 
 export default DataModel

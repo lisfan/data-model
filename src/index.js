@@ -1,1 +1,1 @@
-export { default } from './data-model'
+export { default } from './extend-data-model'
