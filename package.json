@@ -1,7 +1,7 @@
 {
-  "name": "@~lisfan/event-queues",
-  "version": "2.0.0",
-  "description": "事件队列的管理模块",
+  "name": "@~lisfan/data-model",
+  "version": "1.0.0",
+  "description": "数据模型类",
   "main": "index.js",
   "scripts": {
     "pub-pre": "git pull && npm version prerelease",
@@ -18,20 +18,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lisfan/event-queues.git"
+    "url": "git+https://github.com/lisfan/data-model.git"
   },
   "keywords": [
-    "event",
-    "event-bus",
-    "queues",
-    "event-queues"
+    "data",
+    "model",
+    "data-model"
   ],
   "author": "lisfan <goolisfan@gmail.com> (https://www.npmjs.com/~lisfan)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/lisfan/event-queues/issues"
+    "url": "https://github.com/lisfan/data-model/issues"
   },
-  "homepage": "https://github.com/lisfan/event-queues#readme",
+  "homepage": "https://github.com/lisfan/data-model#readme",
   "dependencies": {
     "@~lisfan/logger": "^1.0.0",
     "@~lisfan/validation": "^1.0.0"

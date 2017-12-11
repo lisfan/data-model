@@ -1,1 +1,1 @@
-export { default } from './event-queues'
+export { default } from './data-model'
