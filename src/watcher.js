@@ -7,7 +7,6 @@
 
 import validation from '@~lisfan/validation'
 import Logger from '@~lisfan/logger'
-import Computer from './computer'
 
 // 数据模型的实例计数器
 let counter = 0
@@ -46,11 +45,11 @@ const _actions = {
       // 如果数据不可变，则不可重设该值
       // 建立事件取值器，和赋值器
       Object.defineProperty(self, key, {
-        get: function proxyReactiveGetter() {
+        get: function reactiveGetter() {
           return self._data[key]
         },
 
-        set: function proxyReactiveSetter(val) {
+        set: function reactiveSetter(val) {
           self._data[key] = val
         }
       })
@@ -220,7 +219,14 @@ class DataModel {
    */
   _logger = undefined
 
-  _computer = {}
+  /**
+   * 数据存储集合
+   *
+   * @since 1.1.0
+   * @private
+   */
+  _data = {}
+  _computedWatchers = {}
 
   /**
    * 实例唯一ID
@@ -271,14 +277,6 @@ class DataModel {
   }
 
   /**
-   * 数据存储集合
-   *
-   * @since 1.1.0
-   * @private
-   */
-  _data = {}
-
-  /**
    * 获取实例模型数据集合
    *
    * @returns {object}
@@ -288,7 +286,7 @@ class DataModel {
 
     let getedData = {}
     Object.keys(UNION_STRUCTURE).forEach((key) => {
-      getedData[key] = this._data[key]
+      getedData[key] = this[key]
     })
 
     return getedData
@@ -350,16 +348,15 @@ class DataModel {
     const ctr = this.constructor
     const ExtendClass = function (data) {
       // return new ctr(data)
-      // ctr.apply(this, []) //第二次调用父类构造函数
     }
+
+    ExtendClass.prototype = this.prototype
+    // ExtendClass.constructor = ExtendClass
 
     ExtendClass.STRUCTURE = {
       ...ctr.STRUCTURE,
       ...options.STRUCTURE
     }
-
-    ExtendClass.prototype = new ctr()
-    ExtendClass.prototype.constructor = ExtendClass
 
     return ExtendClass
   }
@@ -368,53 +365,7 @@ class DataModel {
    * 计算值
    */
   compute(key, done) {
-    // key值判断，若已存在，则提示错误
-    const UNION_STRUCTURE = _actions.getUnionStructure(this)
-
-    if (Object.keys(UNION_STRUCTURE).indexOf(key) >= 0) {
-      this._logger.error(`computer key (${key}) has existed! please use other name`)
-    }
-
-    let definedProperty = done
-
-    if (validation.isFunction(done)) {
-      definedProperty = {}
-      definedProperty.get = ()=>{}
-      definedProperty.set = () => {
-        definedProperty.set.call(this)
-      }
-    }
-
-    let xxx = {}
-    // 重新封装getter和setter
-    xxx.get = () => {
-    }
-
-    xxx.set = () => {
-    }
-
-    this._computer[key] = new Computer(xxx)
-
-    // 如果数据不可变，则不可重设该值
-    // 建立事件取值器，和赋值器
-    // todo 警告watch的值与别的值相同了
-    Object.defineProperty(this, key, {
-      get: function proxyComputeGetter() {
-        return this._computer[key].$value
-      },
-      set: function proxyComputeSetter(val) {
-        return definedProperty.set.call(this, val)
-      }
-    })
-
-    return this
-  }
-
-  /**
-   * 计算值
-   */
-  compute2(key, done) {
-    // this._computer[key] = done
+    // this._computedWatchers[key] = done
     const definedProperty = done
 
     if (validation.isFunction(done)) {
