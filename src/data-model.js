@@ -375,25 +375,24 @@ class DataModel {
       this._logger.error(`computer key (${key}) has existed! please use other name`)
     }
 
-    let definedProperty = done
+    const definedProperty = {}
 
     if (validation.isFunction(done)) {
-      definedProperty = {}
-      definedProperty.get = ()=>{}
+      definedProperty.get = () => {
+        return done.call(this)
+      }
       definedProperty.set = () => {
-        definedProperty.set.call(this)
+      }
+    } else {
+      definedProperty.get = () => {
+        return done.get.call(this)
+      }
+      definedProperty.set = (val) => {
+        done.set.call(this, val)
       }
     }
 
-    let xxx = {}
-    // 重新封装getter和setter
-    xxx.get = () => {
-    }
-
-    xxx.set = () => {
-    }
-
-    this._computer[key] = new Computer(xxx)
+    this._computer[key] = new Computer(definedProperty)
 
     // 如果数据不可变，则不可重设该值
     // 建立事件取值器，和赋值器
@@ -403,7 +402,7 @@ class DataModel {
         return this._computer[key].$value
       },
       set: function proxyComputeSetter(val) {
-        return definedProperty.set.call(this, val)
+        return this._computer[key].$set(val)
       }
     })
 
