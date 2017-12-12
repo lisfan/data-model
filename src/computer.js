@@ -1,5 +1,5 @@
 /**
- * @file 数据计算器
+ * @file 值计算类
  * @author lisfan <goolisfan@gmail.com>
  * @version 1.0.0
  * @licence MIT

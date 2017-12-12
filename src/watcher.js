@@ -1,411 +1,143 @@
 /**
- * @file 数据模型类
+ * @file 值观察类
  * @author lisfan <goolisfan@gmail.com>
- * @version 1.1.0
+ * @version 1.0.0
  * @licence MIT
  */
-
 import validation from '@~lisfan/validation'
-import Logger from '@~lisfan/logger'
 
-// 数据模型的实例计数器
-let counter = 0
-
-/**
- * 私有方法集合
- * @private
- */
-const _actions = {
-  // 可变与不可变联合的键列表
-  getUnionStructure(self) {
-    const ctr = self.constructor
-
-    return {
-      ...ctr.STRUCTURE,
-      ...ctr.IMMUTABLE_STRUCTURE
-    }
-  },
-  /**
-   * 初始化数据
-   * @param self
-   * @param data
-   */
-  initData(self, data) {
-    const ctr = self.constructor
-
-    const UNION_STRUCTURE = _actions.getUnionStructure(self)
-
-    Object.keys(UNION_STRUCTURE).forEach((key) => {
-      if (key in ctr.IMMUTABLE_STRUCTURE) {
-        self._data[key] = _actions.getValue(ctr.IMMUTABLE_STRUCTURE[key])
-      } else {
-        self._data[key] = _actions.getValue(data[key], ctr.STRUCTURE[key])
-      }
-
-      // 如果数据不可变，则不可重设该值
-      // 建立事件取值器，和赋值器
-      Object.defineProperty(self, key, {
-        get: function reactiveGetter() {
-          return self._data[key]
-        },
-
-        set: function reactiveSetter(val) {
-          self._data[key] = val
-        }
-      })
-    })
-  },
-  /**
-   * 获取结果值
-   * - 若新值存在，则使用新值
-   * - 若新值不存为undefined，则使用默认值代替
-   *
-   * @param {*} newVal - 新值
-   * @param {*} defaultVal - 新值不存在时，使用默认值替代
-   * @private
-   * @returns {*} 返回新值，或原始值
-   */
-  getValue(newVal, defaultVal) {
-    if (!validation.isUndefined(newVal)) {
-      return newVal
-    }
-
-    return _actions.cloneDeep(defaultVal)
-  },
-  /**
-   * 深拷贝数据
-   * 如果是数组或者纯对象，则进行深拷贝，否则返回原数据
-   *
-   * @param {*} val - 数据
-   * @returns {*}
-   */
-  cloneDeep(val) {
-    // 判断一下默认值是否为数组和对象，若是则创建一份拷贝
-    if (!validation.isArray(val) && !validation.isPlainObject(val)) {
-      return val
-    }
-
-    let newVal = {}
-    Object.entries(val).forEach(([key, value]) => {
-      // 如果是对象或数组，则进行递归
-      newVal[key] = _actions.cloneDeep(value)
-    })
-
-    return validation.isArray(val) ? Object.values(newVal) : newVal
-  },
-
-  // 提取存在于实例结构中的数据
-  pickData(self, data) {
-    const UNION_STRUCTURE_LIST = Object.keys(_actions.getUnionStructure(self))
-
-    const pickedData = {}
-    Object.entries(data).forEach(([key, value]) => {
-      // 存在该键时，取出
-      if (UNION_STRUCTURE_LIST.indexOf(key) >= 0) {
-        pickedData[key] = value
-      }
-    })
-
-    return pickedData
-  },
-  /**
-   * 批量设置实例数据
-   *
-   *
-   * @param {object} data - 接口数据
-   * @returns {*} 返回实例自身
-   */
-  setData(self, data) {
-
-  },
-  /**
-   * 数据更新时间戳
-   * @param {*} self - 当前实例
-   */
-  updatedTime(self) {
-    self.$updatedTimeStamp = new Date().getTime()
-  },
-}
-
-class DataModel {
-  /**
-   * 默认配置选项
-   *
-   * @since 1.1.0
-   * @static
-   * @readonly
-   * @memberOf DataModel
-   * @property {boolean} debug=false - 打印器调试模式是否开启
-   * @property {string} name='DataModel' - 打印器名称标记
-   */
-  static options = {
-    debug: false,
-    name: 'DataModel',
-  }
-
+class Watcher {
   /**
    * 更新默认配置选项
    *
-   * @since 1.1.0
+   * @since 1.0.0
    * @static
-   * @param {object} options - 配置选项
-   * @param {boolean} [options.debug=false] - 打印器调试模式是否开启
-   * @param {string} [options.name='DataModel'] - 打印器名称标记
+   * @property {boolean} data=undefined - 初始数据值
+   * @property {boolean} deep=false - 是否深入观察数据变化
+   * @property {boolean} immediate=false - 是否立即执行一次事件句柄
+   * @property {function} handler=()=>{} - 观察事件句柄
    */
-  static config(options) {
-    DataModel.options = {
-      ...DataModel.options,
-      ...options
+  static options = {
+    data: undefined,
+    deep: false,
+    immediate: false,
+    handler: () => {
     }
-
-    return DataModel
   }
-
-  /**
-   * 定义数据模型结构及初始默认值
-   * [注] 继承类需要覆盖此静态属性
-   *
-   * @since 1.1.0
-   * @static
-   * @override
-   */
-  static STRUCTURE = {}
-
-  /**
-   * 定义数据模型结构中不可变的数据字段
-   * [注] 继承类需要覆盖此静态属性
-   *
-   * @since 1.1.0
-   * @static
-   * @override
-   */
-  static IMMUTABLE_STRUCTURE = {}
-
-  /**
-   * 定义数据模型结构中不可变的数据字段
-   * [注] 继承类需要覆盖此静态属性
-   *
-   * @since 1.1.0
-   * @static
-   * @override
-   */
-  static NEW_STRUCTURE = {}
 
   /**
    * 构造函数
    *
-   * @param {object} [data={}] - 实例化的数据
+   * @param {object} options - 配置参数
+   * @param {boolean} [options.data] - 初始数据值
+   * @param {boolean} [options.deep=false] - 是否深入观察数据变化
+   * @param {boolean} [options.immediate=false] - 是否立即执行一次事件句柄
+   * @param {function} [options.handler=()=>{}] - 观察事件句柄
    */
-  constructor(data = {}) {
-    // 获取继承类构造函数
-    const ctr = this.constructor
+  constructor(options) {
+    this.$options = {
+      ...Watcher.options,
+      ...options
+    }
 
-    // 初始化打印器实例
-    this._logger = new Logger({
-      ...DataModel.options,
-      ...ctr.options
-    })
+    this._data = this.$options.data
 
-    _actions.initData(this, data)
-
-    return this
+    // 实例初始化完成
+    if (this.$immediate) {
+      this.emit(this.$data)
+    }
   }
 
   /**
-   * 日志打印器，方便调试
+   * 实例数据
    *
-   * @since 1.1.0
+   * @since 1.0.0
    * @private
+   * @readonly
    */
-  _logger = undefined
+  _data = null
 
   /**
-   * 数据存储集合
+   * 实例配置项
    *
-   * @since 1.1.0
-   * @private
+   * @since 1.0.0
+   * @readonly
    */
-  _data = {}
-  _computedWatchers = {}
+  $options = undefined
 
   /**
-   * 实例唯一ID
+   * 获取deep标记
    *
-   * @since 1.1.0
-   * @private
-   */
-  $uid = counter++
-
-  /**
-   * 实例创始化时间戳
-   *
-   * @since 1.1.0
-   * @private
-   */
-  $createdTimeStamp = new Date().getTime()
-
-  /**
-   * 实例数据更新时间戳
-   *
-   * @since 1.1.0
-   * @private
-   */
-  $updatedTimeStamp = new Date().getTime()
-
-  /**
-   * 获取打印器实例的名称标记
-   *
-   * @since 1.1.0
+   * @since 1.0.0
    * @getter
    * @readonly
    * @returns {string}
    */
-  get $name() {
-    return this._logger.$name
+  get $deep() {
+    return this.$options.deep
   }
 
   /**
-   * 获取实例的调试配置项
+   * 获取immediate标记
    *
-   * @since 1.1.0
+   * @since 1.0.0
    * @getter
    * @readonly
-   * @returns {boolean}
+   * @returns {string}
    */
-  get $debug() {
-    return this._logger.$debug
+  get $immediate() {
+    return this.$options.immediate
   }
 
   /**
-   * 获取实例模型数据集合
+   * 获取观察事件句柄
    *
-   * @returns {object}
+   * @since 1.0.0
+   * @getter
+   * @readonly
+   * @returns {string}
+   */
+  get $handler() {
+    return this.$options.handler
+  }
+
+  /**
+   * 获取观察事件句柄
+   *
+   * @since 1.0.0
+   * @getter
+   * @readonly
+   * @returns {string}
    */
   get $data() {
-    const UNION_STRUCTURE = _actions.getUnionStructure(this)
-
-    let getedData = {}
-    Object.keys(UNION_STRUCTURE).forEach((key) => {
-      getedData[key] = this[key]
-    })
-
-    return getedData
+    return this._data
   }
 
   /**
-   * 设置实例属性数据
-   * - 若键名存在于不可变枚举中，则不会被覆盖并抛出提醒
-   * - 设置值时，请同时保证值存在于数据模型结构中
+   * 触发事件
    *
-   * @since 1.1.0
-   * @param {string} key - 键名
-   * @param {*} value - 数据值
-   * @returns {DataModel}
+   * @since 1.0.0
+   * @param {*} data - 新数据
    */
-  setValue(key, value) {
-    // 获取继承类构造函数
-    const ctr = this.constructor
-
-    // 若键名存在于不可变枚举中，则不覆盖，并抛出提示
-    if (key in ctr.IMMUTABLE_STRUCTURE) {
-      this._logger.warn(`(${key}) key is not writable! please check.`)
+  emit(data) {
+    // 如果data是普通类型值，则都会触发emit
+    // 如果data是复合类型值，则需判断如下条件决定是否触发emit，否则一定会触发emit
+    // 1. data值与原始值是相同的对象
+    // 2. data是复合类型值
+    // 3. 进入了深度观察
+    if (((validation.isArray(data) || validation.isPlainObject(data))
+        && data === this.$data
+        && this.$deep)) {
+      console.log('123123213')
       return this
     }
 
-    if (!(key in ctr.STRUCTURE)) {
-      this._logger.warn(`(${key}) key is not exist! please check.`)
-      return this
-    }
-
-    this._data[key] = value
-    this.$updatedTimeStamp = new Date().getTime()
+    console.log('$handler')
+    this.$handler(this.$data, data)
+    this._data = data
 
     return this
-  }
-
-  /**
-   * 更新数据
-   * 如果传入的数据属于该实例的数据模型字段，则过滤
-   *
-   * @param {object} data - 新数据
-   * @returns {DataModel}
-   */
-  updateData(data) {
-    // 过滤掉不存于数据模型中的字段
-    const pickedData = _actions.pickData(this, data)
-
-    Object.entries(pickedData).forEach(([key, value]) => {
-      this.setValue(key, value)
-    })
-
-    return this
-  }
-
-  /**
-   * 基于当前进行扩展
-   */
-  extend(options) {
-    const ctr = this.constructor
-    const ExtendClass = function (data) {
-      // return new ctr(data)
-    }
-
-    ExtendClass.prototype = this.prototype
-    // ExtendClass.constructor = ExtendClass
-
-    ExtendClass.STRUCTURE = {
-      ...ctr.STRUCTURE,
-      ...options.STRUCTURE
-    }
-
-    return ExtendClass
-  }
-
-  /**
-   * 计算值
-   */
-  compute(key, done) {
-    // this._computedWatchers[key] = done
-    const definedProperty = done
-
-    if (validation.isFunction(done)) {
-      definedProperty.get = done
-      definedProperty.set = () => {
-      }
-    }
-
-    const UNION_STRUCTURE = _actions.getUnionStructure(this)
-
-    // 存在时，提示错误
-    if (Object.keys(UNION_STRUCTURE).indexOf(key) >= 0) {
-      this._logger.error(`compute key (${key}) has existed! please use other name`)
-    }
-
-    // 如果数据不可变，则不可重设该值
-    // 建立事件取值器，和赋值器
-    // todo 警告watch的值与别的值相同了
-    Object.defineProperty(this, key, {
-      get: function computeGetter() {
-        return definedProperty.get.call(this)
-      },
-      set: function computeSetter(val) {
-        return definedProperty.set.call(this, val)
-      }
-    })
-
-    return this
-  }
-
-  /**
-   * 数据变动检测
-   * 被重新调用的时候
-   *
-   * @param key
-   * @param done
-   */
-  watch(key, done) {
-
   }
 }
 
-export default DataModel
+export default Watcher

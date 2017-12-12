@@ -8,6 +8,7 @@
 import validation from '@~lisfan/validation'
 import Logger from '@~lisfan/logger'
 import Computer from './computer'
+import Watcher from './watcher'
 
 // 数据模型的实例计数器
 let counter = 0
@@ -46,12 +47,15 @@ const _actions = {
       // 如果数据不可变，则不可重设该值
       // 建立事件取值器，和赋值器
       Object.defineProperty(self, key, {
-        get: function proxyReactiveGetter() {
+        get() {
           return self._data[key]
         },
 
-        set: function proxyReactiveSetter(val) {
+        set(val) {
+          console.log('111')
           self._data[key] = val
+          // 触发watch
+          self._watchers[key] || self._watchers[key].emit(val)
         }
       })
     })
@@ -220,13 +224,14 @@ class DataModel {
    */
   _logger = undefined
 
-  _computer = {}
+  _computers = {}
+  _watchers = {}
 
   /**
    * 实例唯一ID
    *
    * @since 1.1.0
-   * @private
+   * @readonly
    */
   $uid = counter++
 
@@ -234,7 +239,7 @@ class DataModel {
    * 实例创始化时间戳
    *
    * @since 1.1.0
-   * @private
+   * @readonly
    */
   $createdTimeStamp = new Date().getTime()
 
@@ -367,7 +372,7 @@ class DataModel {
   /**
    * 计算值
    */
-  compute(key, done) {
+  computed(key, done) {
     // key值判断，若已存在，则提示错误
     const UNION_STRUCTURE = _actions.getUnionStructure(this)
 
@@ -375,69 +380,34 @@ class DataModel {
       this._logger.error(`computer key (${key}) has existed! please use other name`)
     }
 
-    const definedProperty = {}
+    const options = {}
 
     if (validation.isFunction(done)) {
-      definedProperty.get = () => {
+      options.get = () => {
         return done.call(this)
       }
-      definedProperty.set = () => {
+      options.set = () => {
       }
     } else {
-      definedProperty.get = () => {
+      options.get = () => {
         return done.get.call(this)
       }
-      definedProperty.set = (val) => {
+      options.set = (val) => {
         done.set.call(this, val)
       }
     }
 
-    this._computer[key] = new Computer(definedProperty)
+    this._computers[key] = new Computer(options)
 
     // 如果数据不可变，则不可重设该值
     // 建立事件取值器，和赋值器
     // todo 警告watch的值与别的值相同了
     Object.defineProperty(this, key, {
-      get: function proxyComputeGetter() {
-        return this._computer[key].$value
+      get() {
+        return this._computers[key].$value
       },
-      set: function proxyComputeSetter(val) {
-        return this._computer[key].$set(val)
-      }
-    })
-
-    return this
-  }
-
-  /**
-   * 计算值
-   */
-  compute2(key, done) {
-    // this._computer[key] = done
-    const definedProperty = done
-
-    if (validation.isFunction(done)) {
-      definedProperty.get = done
-      definedProperty.set = () => {
-      }
-    }
-
-    const UNION_STRUCTURE = _actions.getUnionStructure(this)
-
-    // 存在时，提示错误
-    if (Object.keys(UNION_STRUCTURE).indexOf(key) >= 0) {
-      this._logger.error(`compute key (${key}) has existed! please use other name`)
-    }
-
-    // 如果数据不可变，则不可重设该值
-    // 建立事件取值器，和赋值器
-    // todo 警告watch的值与别的值相同了
-    Object.defineProperty(this, key, {
-      get: function computeGetter() {
-        return definedProperty.get.call(this)
-      },
-      set: function computeSetter(val) {
-        return definedProperty.set.call(this, val)
+      set(val) {
+        return this._computers[key].$set(val)
       }
     })
 
@@ -452,7 +422,24 @@ class DataModel {
    * @param done
    */
   watch(key, done) {
+    let options = {
+      data: this[key]
+    }
 
+    if (validation.isFunction(done)) {
+      options.handler = () => {
+        return done.call(this)
+      }
+    } else {
+      options = { ...done }
+      options.handler = () => {
+        return done.handler.call(this)
+      }
+    }
+
+    this._watchers[key] = new Watcher(options)
+
+    return this
   }
 }
 
