@@ -13,7 +13,16 @@ class ExtendDataModel extends DataModel {
     id: 10,
     name: 20,
     height: 168,
-    weight: 78
+    weight: 78,
+    list: [1],
+    union: {
+      id: 10,
+      name: 'msl',
+      subUnion: {
+        age: 28,
+        price: '10000w'
+      }
+    }
   }
 
   static IMMUTABLE_STRUCTURE = {

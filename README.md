@@ -17,6 +17,7 @@
 - 惰性求值的
 - watch功能
 - 模仿vue风格
+- 处理todo
 
 ## Detail 详情
 

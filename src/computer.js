@@ -6,6 +6,11 @@
  */
 
 class Computer {
+  /**
+   * @param {object} options - 配置参数
+   * @param {function} [options.get] - 设置存值描述符
+   * @param {function} [options.set] - 设置取值描述符
+   */
   constructor(options) {
     this.$options = options
   }
