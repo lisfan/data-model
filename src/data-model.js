@@ -30,39 +30,63 @@ const _actions = {
     }
   },
   /**
+   * 对象路径方式取值值
+   */
+  setValueByPath(obj, path, value) {
+    // 不使用eval，进行循环查找path，一旦失败，则返回undefined
+    const pathList = path.split('.')
+    const pathListLen = pathList.length
+    // let result = obj
+
+    return pathList.reduce((result, key, index) => {
+      // 如果已经查询到最后一个对象值，则进行值设定
+      if (index === pathListLen - 1) {
+        result[key] = value
+        return result
+      }
+
+      let tempResult = result[key]
+
+      // 中止条件
+      // 不是最后一个且当前路径值不存在，且不是一个对象
+      if ((index < pathListLen - 1) && (!tempResult || !validation.isPlainObject(tempResult))) {
+        result[key] = {}
+      }
+
+      return result[key]
+    }, obj)
+  },
+  /**
    * 递归定义对象属性
    * @param {DataModel} self - 实例自身
-   * @param {object} obj - 定义对象
-   * @param {object} data - 实例存储的值对象
    */
-  defineProperty(self, obj, data) {
-    Object.keys(data).forEach((key) => {
-      // 如果数据不可变，则不可重设该值
-      // 建立事件取值器，和赋值器
-      if (validation.isPlainObject(data[key])) {
+  defineDataProperty(self) {
+    Object.keys(self._data).forEach((key) => {
+      // 为了存取描述符的逻辑简单，条件判断移至外层
+      if (validation.isPlainObject(self._data[key])) {
         // 不需要递归
-        Object.defineProperty(obj, key, {
+        Object.defineProperty(self, key, {
           get: function reactiveGetter() {
-            return _actions.recursiveDefineProperty(data[key])
+            return _actions.recursiveDefineProperty(self, key, self._data[key])
           },
 
           set: function reactiveSetter(val) {
-            // data[key] = val
-            // // 触发watch
-            // self._watchers[key] && self._watchers[key].emit(val)
+            self._data[key] = val
+            // 触发watch
+            self._watchers[key] && self._watchers[key].emit(val)
           }
         })
       } else {
         // 不需要递归
         Object.defineProperty(self, key, {
           get: function reactiveGetter() {
-            return data[key]
+            return self._data[key]
           },
 
           set: function reactiveSetter(val) {
-            // data[key] = val
-            // // 触发watch
-            // self._watchers[key] && self._watchers[key].emit(val)
+            self._data[key] = val
+            // 触发watch
+            self._watchers[key] && self._watchers[key].emit(val)
           }
         })
       }
@@ -70,31 +94,32 @@ const _actions = {
   },
   /**
    * 递归定义对象属性
-   * @param {DataModel} self - 实例自身
-   * @param {object} obj - 定义对象
-   * @param {object} data - 实例存储的值对象
+   *
+   * @param {object} data - 取值对象
    */
-  recursiveDefineProperty(data) {
+  recursiveDefineProperty(self, path, data) {
     const objTemp = {}
 
-    Object.keys(data).forEach((subKey) => {
-      console.log('subKey', subKey)
-      if (validation.isPlainObject(data[subKey])) {
-        Object.defineProperty(objTemp, subKey, {
+    Object.keys(data).forEach((key) => {
+      // 为了存取描述符的逻辑简单，条件判断移至外层
+      if (validation.isPlainObject(data[key])) {
+        Object.defineProperty(objTemp, key, {
           get: function reactiveGetter() {
-            return _actions.recursiveDefineProperty(data[subKey])
+            return _actions.recursiveDefineProperty(self, [path, key].join('.'), data[key])
           },
-          set: function reactiveSetter() {
-
+          set: function reactiveSetter(val) {
+            _actions.setValueByPath(self._data, [path, key].join('.'), val)
           }
         })
       } else {
-        Object.defineProperty(objTemp, subKey, {
+        Object.defineProperty(objTemp, key, {
           get: function reactiveGetter() {
-            return data[subKey]
+            return data[key]
           },
-          set: function reactiveSetter() {
-
+          set: function reactiveSetter(val) {
+            _actions.setValueByPath(self._data, [path, key].join('.'), val)
+            // // 触发watch
+            // self._watchers[key] && self._watchers[key].emit(val)
           }
         })
       }
@@ -159,9 +184,8 @@ const _actions = {
       }
     })
 
-    // 如果数据不可变，则不可重设该值
-    // 建立事件取值器，和赋值器
-    _actions.defineProperty(self, self, self._data)
+    // 建立data的存取描述符
+    _actions.defineDataProperty(self)
   },
 
   /**
