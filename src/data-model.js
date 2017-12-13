@@ -147,19 +147,20 @@ const _actions = {
 
     return validation.isArray(val) ? Object.values(newVal) : newVal
   },
-  merge(mainDict, ...mergedDictList) {
+  defaults(mainDict, ...defaultsDictList) {
     // 如果
     const newObj = _actions.cloneDeep(mainDict)
 
-    mergedDictList.forEach((mergedDict) => {
-      Object.entries(mergedDict).forEach(([key, value]) => {
+    defaultsDictList.forEach((defaultsDict) => {
+      Object.keys(mainDict).forEach((key) => {
         // 主数据字典也存在该值且是字段数据时
         // 且子对象也是对象的时候
-        if (validation.isPlainObject(mainDict[key]) && validation.isPlainObject(value)) {
-          return newObj[key] = _actions.merge(mainDict[key], value)
+        if (validation.isPlainObject(mainDict[key]) && validation.isPlainObject(defaultsDict[key])) {
+          return newObj[key] = _actions.defaults(mainDict[key], defaultsDict[key])
         }
 
-        newObj[key] = value
+        // 被合并值不存在时，使用默认值代替
+        newObj[key] = defaultsDict[key] || mainDict[key]
       })
     })
 
@@ -168,18 +169,18 @@ const _actions = {
   /**
    * 获取结果值
    * - 若新值存在，则使用新值
-   * - 若新值不存为undefined，则使用默认值代替
+   * - 若新值为undefined，则使用默认值代替
    *
    * @param {*} newVal - 新值
    * @param {*} defaultVal - 新值不存在时，使用默认值替代
-   * @private
    * @returns {*} 返回新值，或原始值
    */
-  getValue(newVal, defaultVal) {
+  getValue(defaultVal, newVal) {
+    // 新值存在
     if (!validation.isUndefined(newVal)) {
       // 如果是纯对象，则进行合并
       if (validation.isPlainObject(newVal)) {
-        return _actions.merge(_actions.cloneDeep(defaultVal), newVal)
+        return _actions.defaults(_actions.cloneDeep(defaultVal), newVal)
       }
 
       // 否则直接返回值
@@ -206,7 +207,7 @@ const _actions = {
         self._data[key] = _actions.getValue(ctr.IMMUTABLE_STRUCTURE[key])
       } else {
 
-        self._data[key] = _actions.getValue(data[key], ctr.STRUCTURE[key])
+        self._data[key] = _actions.getValue(ctr.STRUCTURE[key], data[key])
       }
     })
 

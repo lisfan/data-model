@@ -17,7 +17,6 @@ class ExtendDataModel extends DataModel {
     list: [1],
     origin: {
       id: 20,
-      age: 30,
       name: 'xkeshi',
       subOrigin: {
         id: 30,
