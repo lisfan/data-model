@@ -147,6 +147,24 @@ const _actions = {
 
     return validation.isArray(val) ? Object.values(newVal) : newVal
   },
+  merge(mainDict, ...mergedDictList) {
+    // 如果
+    const newObj = _actions.cloneDeep(mainDict)
+
+    mergedDictList.forEach((mergedDict) => {
+      Object.entries(mergedDict).forEach(([key, value]) => {
+        // 主数据字典也存在该值且是字段数据时
+        // 且子对象也是对象的时候
+        if (validation.isPlainObject(mainDict[key]) && validation.isPlainObject(value)) {
+          return newObj[key] = _actions.merge(mainDict[key], value)
+        }
+
+        newObj[key] = value
+      })
+    })
+
+    return newObj
+  },
   /**
    * 获取结果值
    * - 若新值存在，则使用新值
@@ -159,6 +177,12 @@ const _actions = {
    */
   getValue(newVal, defaultVal) {
     if (!validation.isUndefined(newVal)) {
+      // 如果是纯对象，则进行合并
+      if (validation.isPlainObject(newVal)) {
+        return _actions.merge(_actions.cloneDeep(defaultVal), newVal)
+      }
+
+      // 否则直接返回值
       return newVal
     }
 
@@ -178,8 +202,10 @@ const _actions = {
 
     Object.keys(UNION_STRUCTURE).forEach((key) => {
       if (key in ctr.IMMUTABLE_STRUCTURE) {
+        // 不可变数据的字段
         self._data[key] = _actions.getValue(ctr.IMMUTABLE_STRUCTURE[key])
       } else {
+
         self._data[key] = _actions.getValue(data[key], ctr.STRUCTURE[key])
       }
     })
@@ -263,6 +289,7 @@ class DataModel {
 
   /**
    * 定义数据模型结构，及设置初始默认值
+   * [注] 数值支持递归合并
    * [注] 继承类需要覆盖此静态属性
    *
    * @since 1.1.0
