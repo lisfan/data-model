@@ -58,7 +58,7 @@ class Watcher {
   _data = null
 
   /**
-   * 实例配置项
+   * 实例初始配置项
    *
    * @since 1.0.0
    * @readonly

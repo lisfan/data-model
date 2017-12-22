@@ -2,9 +2,14 @@
 
 ## 数据模型类
 
-[API documentation](https://lisfan.github.io/event-queues/)
+[API documentation](https://lisfan.github.io/data-model/)
 
 ## Feature 特性
+
+- 模仿vue的model操作风格
+- 支持computed
+- 支持watch
+
 
 -    * - 可以自定义业务对象的数据结构
   * - 可以自定义业务对象的数据结构
@@ -16,24 +21,25 @@
 - computed功能
 - 惰性求值的
 - watch功能
-- 模仿vue风格
 - 处理todo
+- 优化实例数据模型值合并方式，只取存在数据模型中的值
+
 
 ## Detail 详情
 
-- 该类应该作为基类，被其它具体的业务操作对象继承
-- 可以进行computed计算
+- 该类应该作为基类，被其它具体的业务操作对象类所继承
+- 数据模型的结构在实例化时就已经定好格式，若传进去的数据字段不存在于数据模型结构中，将会被忽略（这样有利于你精简或者规划你想要的数据结构）
 
 ## Install 安装
 
 ```bash
-npm install -S @~lisfan/event-queues
+npm install -S @~lisfan/data-model
 ```
 
 ## Usage 起步
 
 ```js
-import EventQueues from '@~lisfan/eventQueues'
+import EventQueues from '@~lisfan/data-model'
 
 const eventQueues = new EventQueues({
   debug: true, // 开始日志调式，默认false
