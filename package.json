@@ -1,7 +1,7 @@
 {
   "name": "@~lisfan/data-model",
   "version": "1.0.0",
-  "description": "数据模型类",
+  "description": "数据模型类：将业务抽像",
   "main": "index.js",
   "scripts": {
     "pub-pre": "git pull && npm version prerelease",

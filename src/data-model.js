@@ -1,14 +1,13 @@
 /**
  * @file 数据模型类
- * @author lisfan <goolisfan@gmail.com>
- * @version 1.1.0
- * @licence MIT
  */
 
 import validation from '@~lisfan/validation'
 import Logger from '@~lisfan/logger'
 import Computer from './computer'
 import Watcher from './watcher'
+
+import _ from './utils/utils'
 
 // 实例的UID计数器
 let counter = 0
@@ -18,7 +17,10 @@ const _actions = {
   /**
    * 获取数据模型的可变与不可变的联合集合
    *
+   * @since 1.0.0
+   *
    * @param {DataModel} self - 实例自身
+   *
    * @returns {object}
    */
   getUnionStructure(self) {
@@ -30,13 +32,21 @@ const _actions = {
     }
   },
   /**
-   * 对象路径方式取值值
+   * 以对象路径方式的方式设置对象的值
+   * 如果对象本身的链路中段不存在值的，则会将其链路设置为新对象
+   *
+   * @since 1.0.0
+   *
+   * @param {object} obj - 被设置的对象
+   * @param {string} path - 路径地址
+   * @param {*} value - 实例自身
+   *
+   * @returns {object}
    */
   setValueByPath(obj, path, value) {
-    // 不使用eval，进行循环查找path，一旦失败，则返回undefined
+    // [注] 不使用eval
     const pathList = path.split('.')
     const pathListLen = pathList.length
-    // let result = obj
 
     return pathList.reduce((result, key, index) => {
       // 如果已经查询到最后一个对象值，则进行值设定
@@ -45,11 +55,10 @@ const _actions = {
         return result
       }
 
-      let tempResult = result[key]
-
-      // 中止条件
-      // 不是最后一个且当前路径值不存在，且不是一个对象
-      if ((index < pathListLen - 1) && (!tempResult || !validation.isPlainObject(tempResult))) {
+      // 判断当前链路是否可取值
+      // 当前路径不存在值
+      // 当前路径不是对象
+      if (!result[key] || !validation.isPlainObject(result[key])) {
         result[key] = {}
       }
 
@@ -57,17 +66,20 @@ const _actions = {
     }, obj)
   },
   /**
-   * 递归定义对象属性
+   * 递归定义对象的存取描述符
+   *
+   * @since 1.0.0
+   *
    * @param {DataModel} self - 实例自身
    */
   defineDataProperty(self) {
     Object.keys(self._data).forEach((key) => {
       // 为了存取描述符的逻辑简单，条件判断移至外层
       if (validation.isPlainObject(self._data[key])) {
-        // 不需要递归
+        // 对象需要递归
         Object.defineProperty(self, key, {
           get: function reactiveGetter() {
-            return _actions.recursiveDefineProperty(self, key, self._data[key])
+            return _actions.recursiveDefineObjectProperty(self, key, self._data[key])
           },
 
           set: function reactiveSetter(val) {
@@ -93,11 +105,17 @@ const _actions = {
     })
   },
   /**
-   * 递归定义对象属性
+   * 递归定义对象数据的存取描述符
    *
+   * @since 1.0.0
+   *
+   * @param {DataModel} self - 实例自身
+   * @param {string} path - 路径
    * @param {object} data - 取值对象
+   *
+   * @returns {object}
    */
-  recursiveDefineProperty(self, path, data) {
+  recursiveDefineObjectProperty(self, path, data) {
     const objTemp = {}
 
     Object.keys(data).forEach((key) => {
@@ -105,8 +123,9 @@ const _actions = {
       if (validation.isPlainObject(data[key])) {
         Object.defineProperty(objTemp, key, {
           get: function reactiveGetter() {
-            return _actions.recursiveDefineProperty(self, [path, key].join('.'), data[key])
+            return _actions.recursiveDefineObjectProperty(self, [path, key].join('.'), data[key])
           },
+
           set: function reactiveSetter(val) {
             _actions.setValueByPath(self._data, [path, key].join('.'), val)
           }
@@ -116,6 +135,7 @@ const _actions = {
           get: function reactiveGetter() {
             return data[key]
           },
+
           set: function reactiveSetter(val) {
             _actions.setValueByPath(self._data, [path, key].join('.'), val)
             // // 触发watch
@@ -129,14 +149,20 @@ const _actions = {
   },
   /**
    * 深拷贝数据
-   * 如果是数组或者纯对象，则进行深拷贝，否则返回原数据
+   * - 若是数组或者纯对象，则进行深拷贝
+   * - 否则返回原数据
+   *
+   * @since 1.0.0
    *
    * @param {*} val - 待拷贝数据
+   *
    * @returns {*}
    */
   cloneDeep(val) {
     // 判断一下默认值是否为数组和对象，若是则创建一份拷贝
-    if (!validation.isArray(val) && !validation.isPlainObject(val)) return val
+    if (!validation.isArray(val) && !validation.isPlainObject(val)) {
+      return val
+    }
 
     let newVal = {}
 
@@ -147,40 +173,53 @@ const _actions = {
 
     return validation.isArray(val) ? Object.values(newVal) : newVal
   },
-  defaults(mainDict, ...defaultsDictList) {
-    // 如果
-    const newObj = _actions.cloneDeep(mainDict)
+  /**
+   * 递归合并来源对象的键值。 跳过来源对象解析为 undefined 的属性
+   *
+   * @since 1.0.0
+   *
+   * @param {object} targetDict - 目标对象
+   * @param {object[]} mergeDictList - 来源对象列表
+   *
+   * @returns {*} 返回新对象
+   */
+  merge(targetDict, ...mergeDictList) {
+    // 如果是对象，则拷贝一份数据
+    // const newObj = _actions.cloneDeep(targetDict)
 
-    defaultsDictList.forEach((defaultsDict) => {
-      Object.keys(mainDict).forEach((key) => {
+    mergeDictList.forEach((mergeDict) => {
+      Object.keys(mergeDict).forEach((key) => {
         // 主数据字典也存在该值且是字段数据时
         // 且子对象也是对象的时候
-        if (validation.isPlainObject(mainDict[key]) && validation.isPlainObject(defaultsDict[key])) {
-          return newObj[key] = _actions.defaults(mainDict[key], defaultsDict[key])
+        if (validation.isPlainObject(targetDict[key]) && validation.isPlainObject(mergeDict[key])) {
+          return targetDict[key] = _actions.merge(targetDict[key], mergeDict[key])
         }
 
         // 被合并值不存在时，使用默认值代替
-        newObj[key] = defaultsDict[key] || mainDict[key]
+        targetDict[key] = mergeDict[key] || targetDict[key]
       })
     })
 
-    return newObj
+    return targetDict
   },
   /**
    * 获取结果值
    * - 若新值存在，则使用新值
    * - 若新值为undefined，则使用默认值代替
    *
+   * @since 1.0.0
+   *
    * @param {*} newVal - 新值
    * @param {*} defaultVal - 新值不存在时，使用默认值替代
-   * @returns {*} 返回新值，或原始值
+   *
+   * @returns {*}
    */
   getValue(defaultVal, newVal) {
     // 新值存在
     if (!validation.isUndefined(newVal)) {
       // 如果是纯对象，则进行合并
       if (validation.isPlainObject(newVal)) {
-        return _actions.defaults(_actions.cloneDeep(defaultVal), newVal)
+        return _actions.merge(_actions.cloneDeep(defaultVal), newVal)
       }
 
       // 否则直接返回值
@@ -191,7 +230,9 @@ const _actions = {
     return _actions.cloneDeep(defaultVal)
   },
   /**
-   * 初始化数据，并定义属性描述符
+   * 初始化数据，并定义存取描述符
+   *
+   * @sicne 1.0.0
    *
    * @param {DataModel} self - 实例自身
    * @param {object} data - 初始化数据
@@ -218,8 +259,11 @@ const _actions = {
   /**
    * 提取只属于该实例属性的数据
    *
+   * @since 1.0.0
+   *
    * @param {DataModel} self - 实例自身
    * @param {object} data - 初始化数据
+   *
    * @returns {object}
    */
   pickData(self, data) {
@@ -236,22 +280,6 @@ const _actions = {
 
     return pickedData
   },
-  // /**
-  //  * 批量设置实例数据
-  //  *
-  //  * @param {object} data - 接口数据
-  //  * @returns {*} 返回实例自身
-  //  */
-  // setData(self, data) {
-  //
-  // },
-  // /**
-  //  * 数据更新时间戳
-  //  * @param {*} self - 当前实例
-  //  */
-  // updatedTime(self) {
-  //   self.$updatedTimeStamp = new Date().getTime()
-  // },
 }
 
 class DataModel {
@@ -597,3 +625,28 @@ class DataModel {
 }
 
 export default DataModel
+
+const obj1 = {
+  id: 10,
+  name: 'msl',
+  tt: {
+    id: 20,
+    good: 'string'
+  }
+}
+
+const obj2 = {
+  id: 30,
+  name2: 'msl',
+  tt2: {
+    id: 20,
+    good: 'string'
+  },
+  tt: {
+    id: 30,
+    good: 'xtring',
+    xx: 'good'
+  }
+}
+
+console.log(_actions.merge(obj1, obj2))
