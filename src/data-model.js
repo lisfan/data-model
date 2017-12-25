@@ -7,10 +7,8 @@ import Logger from '@~lisfan/logger'
 import Computer from './computer'
 import Watcher from './watcher'
 
-import _ from './utils/utils'
-
 // 实例的UID计数器
-let counter = 0
+let UIDCounter = 0
 
 // 私有方法
 const _actions = {
@@ -287,9 +285,11 @@ class DataModel {
    * 默认配置选项
    *
    * @since 1.1.0
+   *
    * @static
    * @readonly
    * @memberOf DataModel
+   *
    * @property {boolean} debug=false - 打印器调试模式是否开启
    * @property {string} name='DataModel' - 打印器名称标记
    */
@@ -302,18 +302,21 @@ class DataModel {
    * 更新默认配置选项
    *
    * @since 1.1.0
+   *
    * @static
-   * @param {object} options - 配置选项
-   * @param {boolean} [options.debug=false] - 打印器调试模式是否开启
-   * @param {string} [options.name='DataModel'] - 打印器名称标记
+   *
+   * @see DataModel.options
+   *
+   * @param {object} options - 配置选项见{@link DataModel.options}
    */
   static config(options) {
-    DataModel.options = {
-      ...DataModel.options,
+    const ctr = this
+    ctr.options = {
+      ...ctr.options,
       ...options
     }
 
-    return DataModel
+    return ctr
   }
 
   /**
@@ -340,16 +343,31 @@ class DataModel {
   /**
    * 构造函数
    *
-   * @param {object} [data={}] - 实始化数据
+   * @see DataModel.options
+   *
+   * @param {object} options - 其他配置选项见{@link DataModel.options}
+   * @param {object} [options.options={}] - 实始化数据
    */
-  constructor(data = {}) {
-    // 获取继承类构造函数
+  constructor(options) {
     const ctr = this.constructor
+
+    // 如果options是一个纯对象且存在data时，则表示他是一个配置对象，如果不含data，那么它的值将作为配置选项的data属性值
+
+    if (options && validation.isPlainObject(options) && !validation.isPlainObject(options.data)) {
+      options = {
+        data: options
+      }
+    }
+
+    this.$options = {
+      ...ctr.options,
+      ...options
+    }
 
     // 初始化打印器实例
     this._logger = new Logger({
-      ...DataModel.options,
-      ...ctr.options
+      name: this.$options.name,
+      debug: this.$options.debug,
     })
 
     // 数据初始化绑定
@@ -362,6 +380,7 @@ class DataModel {
    * 日志打印器，方便调试
    *
    * @since 1.1.0
+   *
    * @private
    */
   _logger = undefined
@@ -370,6 +389,7 @@ class DataModel {
    * 计算器实例集合
    *
    * @since 1.1.0
+   *
    * @private
    */
   _computers = {}
@@ -378,81 +398,72 @@ class DataModel {
    * 观察者实例集合
    *
    * @since 1.1.0
+   *
    * @private
    */
   _watchers = {}
 
   /**
-   * 实例唯一ID
+   * 获取实例初始化时的唯一ID
    *
    * @since 1.1.0
+   *
    * @readonly
+   *
+   * @type {number}
    */
-  $uid = counter++
+  $uid = UIDCounter++
 
   /**
-   * 实例初始化时间戳
+   * 获取实例初始化时间戳
    *
    * @since 1.1.0
+   *
    * @readonly
+   *
+   * @type {number}
    */
   $createdTimeStamp = new Date().getTime()
 
   /**
-   * 实例数据发生更新时的时间戳
+   * 获取实例数据发生更新时的时间戳
    *
    * @since 1.1.0
-   * @private
+   *
+   * @readonly
+   *
+   * @type {number}
    */
   $updatedTimeStamp = new Date().getTime()
-
-  /**
-   * 获取打印器实例的名称标记
-   *
-   * @since 1.1.0
-   * @getter
-   * @readonly
-   * @returns {string}
-   */
-  get $name() {
-    return this._logger.$name
-  }
-
-  /**
-   * 获取实例的调试配置项
-   *
-   * @since 1.1.0
-   * @getter
-   * @readonly
-   * @returns {boolean}
-   */
-  get $debug() {
-    return this._logger.$debug
-  }
 
   /**
    * 数据存储集合
    *
    * @since 1.1.0
+   *
    * @private
    */
   _data = {}
 
   /**
-   * 获取实例模型数据集合
+   * 获取实例的数据集合
    *
-   * @todo 可以改进为不使用getter取值，自动来
-   * @returns {object}
+   * @since 1.1.0
+   *
+   * @getter
+   * @readonly
+   *
+   * @type {object}
    */
   get $data() {
     const UNION_STRUCTURE = _actions.getUnionStructure(this)
 
-    let getedData = {}
+    let data = {}
     Object.keys(UNION_STRUCTURE).forEach((key) => {
-      getedData[key] = this._data[key]
+      data[key] = this._data[key]
     })
 
-    return getedData
+    return data
   }
 
   /**
@@ -463,8 +474,10 @@ class DataModel {
    * @todo 支持路径定义
    *
    * @since 1.1.0
+   *
    * @param {string} key - 键名
    * @param {*} value - 数据值
+   *
    * @returns {DataModel}
    */
   setValue(key, value) {
@@ -490,9 +503,12 @@ class DataModel {
 
   /**
    * 更新整个数据模型结构的新数据
-   * 2. 若指定的键名存在不存在于实例模型数据结构中，则会过滤，则抛出警告提醒
+   * - 若指定的键名存在不存在于实例模型数据结构中，则会过滤，则抛出警告提醒
+   *
+   * @since 1.1.0
    *
    * @param {object} data - 新数据
+   *
    * @returns {DataModel}
    */
   updateData(data) {
@@ -509,6 +525,14 @@ class DataModel {
   /**
    * 基于当前进行扩展
    * @todo 未完成
+   *
+   * @since 1.1.0
+   *
+   * @see DataModel.options
+   *
+   * @param {object} options - 其他配置选项见{@link DataModel.options}
+   *
+   * @returns {DataModel}
    */
   extend(options) {
     const ctr = this.constructor
@@ -534,10 +558,13 @@ class DataModel {
    * 设置的key名，不能是已存在于数据模型结构中的值
    * 若其检测的值未发生变化，则不会重新求值，取上一次的求值结果
    *
+   * @since 1.1.0
+   *
    * @param {string} key - 要计算的字段名
    * @param {object|function} options - 值类型为函数时，函数会当成computer实例配置项的get存储描述符
    * @param {function} [options.get] - 设置存值描述符
    * @param {function} [options.set] - 设置取值描述符
+   *
    * @returns {DataModel}
    */
   computed(key, options) {
@@ -592,12 +619,15 @@ class DataModel {
    * [误] （不进行判断，因为watch可能会在其他方法调用之后再进行调用） 观察的字段数据必须存在于实例数据模型和computers属性中，否则抛出警告提醒
    * 当被观察的字段数据发生变化（新的数据必须与原数据不同）时，才会触发事件处理句柄
    *
+   * @since 1.1.0
+   *
    * @param {string} key - 要观察的字段名
    * @param {object|function} options - 值类型为函数时，函数会当成watcher实例配置项的handler事件句柄
    * @param {string} [options.data=undefined] - 初始数据值，会被JSON.stringify转换成字符串
    * @param {boolean} [options.deep=false] - 是否深入观察数据变化
    * @param {boolean} [options.immediate=false] - 是否立即执行一次事件句柄
    * @param {function} [options.handler=()=>{]} - 观察事件句柄
+   *
    * @returns {DataModel}
    */
   watch(key, options) {
@@ -625,28 +655,3 @@ class DataModel {
 }
 
 export default DataModel
-
-const obj1 = {
-  id: 10,
-  name: 'msl',
-  tt: {
-    id: 20,
-    good: 'string'
-  }
-}
-
-const obj2 = {
-  id: 30,
-  name2: 'msl',
-  tt2: {
-    id: 20,
-    good: 'string'
-  },
-  tt: {
-    id: 30,
-    good: 'xtring',
-    xx: 'good'
-  }
-}
-
-console.log(_actions.merge(obj1, obj2))

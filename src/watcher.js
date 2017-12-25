@@ -26,9 +26,9 @@ class Watcher {
   /**
    * 构造函数
    *
-   * @see DataModel.options
+   * @see Watcher.options
    *
-   * @param {object} options - 配置选项见{@link DataModel.options}
+   * @param {object} options - 配置选项见{@link Watcher.options}
    */
   constructor(options) {
     this.$options = {

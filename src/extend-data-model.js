@@ -36,7 +36,8 @@ class ExtendDataModel extends DataModel {
   }
 
   static IMMUTABLE_STRUCTURE = {
-    isHandsome: true
+    ...DataModel.IMMUTABLE_STRUCTURE,
+    ExtendDataModel: true
   }
 
   constructor(data) {
