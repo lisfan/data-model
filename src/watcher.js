@@ -9,7 +9,12 @@ class Watcher {
    * 更新默认配置选项
    *
    * @since 1.0.0
+   *
    * @static
+   * @readonly
+   * @memberOf Watcher
+   *
+   * @type {object}
    * @property {string} data=undefined - 初始数据值，会被JSON.stringify转换成字符串
    * @property {boolean} deep=false - 是否深入观察数据变化
    * @property {boolean} immediate=false - 是否立即执行一次事件句柄
@@ -39,9 +44,7 @@ class Watcher {
     this._data = this.$options.data
 
     // 是否立即执行一次事件句柄
-    if (this.$immediate) {
-      this.$handler(this.$data)
-    }
+    this.$immediate && this.$handler(this.$data)
   }
 
   /**

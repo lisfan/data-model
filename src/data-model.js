@@ -4,6 +4,7 @@
 
 import validation from '@~lisfan/validation'
 import Logger from '@~lisfan/logger'
+import Storer from './storer'
 import Computer from './computer'
 import Watcher from './watcher'
 
@@ -30,18 +31,18 @@ const _actions = {
     }
   },
   /**
-   * 以对象路径方式的方式设置对象的值
+   * 以对象路径方式的方式设置目标对象的键值
    * 如果对象本身的链路中段不存在值的，则会将其链路设置为新对象
    *
    * @since 1.0.0
    *
-   * @param {object} obj - 被设置的对象
-   * @param {string} path - 路径地址
-   * @param {*} value - 实例自身
+   * @param {object} target - 目标对象
+   * @param {string} path - 路径
+   * @param {*} value - 值
    *
    * @returns {object}
    */
-  setValueByPath(obj, path, value) {
+  setValueByPath(target, path, value) {
     // [注] 不使用eval
     const pathList = path.split('.')
     const pathListLen = pathList.length
@@ -56,12 +57,10 @@ const _actions = {
       // 判断当前链路是否可取值
       // 当前路径不存在值
       // 当前路径不是对象
-      if (!result[key] || !validation.isPlainObject(result[key])) {
-        result[key] = {}
-      }
+      if (!result[key] || !validation.isPlainObject(result[key])) result[key] = {}
 
       return result[key]
-    }, obj)
+    }, target)
   },
   /**
    * 递归定义对象的存取描述符
@@ -71,17 +70,17 @@ const _actions = {
    * @param {DataModel} self - 实例自身
    */
   defineDataProperty(self) {
-    Object.keys(self._data).forEach((key) => {
+    Object.keys(self._storers).forEach((key) => {
       // 为了存取描述符的逻辑简单，条件判断移至外层
-      if (validation.isPlainObject(self._data[key])) {
+      if (validation.isPlainObject(self._storers[key].$data)) {
         // 对象需要递归
         Object.defineProperty(self, key, {
           get: function reactiveGetter() {
-            return _actions.recursiveDefineObjectProperty(self, key, self._data[key])
+            return _actions.recursiveDefineObjectProperty(self, key, self._storers[key].$data)
           },
 
           set: function reactiveSetter(val) {
-            self._data[key] = val
+            self._storers[key].update(val)
             // 触发watch
             self._watchers[key] && self._watchers[key].emit(val)
           }
@@ -90,11 +89,11 @@ const _actions = {
         // 不需要递归
         Object.defineProperty(self, key, {
           get: function reactiveGetter() {
-            return self._data[key]
+            return self._storers[key].$data
           },
 
           set: function reactiveSetter(val) {
-            self._data[key] = val
+            self._storers[key].update(val)
             // 触发watch
             self._watchers[key] && self._watchers[key].emit(val)
           }
@@ -125,7 +124,7 @@ const _actions = {
           },
 
           set: function reactiveSetter(val) {
-            _actions.setValueByPath(self._data, [path, key].join('.'), val)
+            // _actions.setValueByPath(self._storers, [path, key].join('.'), val)
           }
         })
       } else {
@@ -135,7 +134,7 @@ const _actions = {
           },
 
           set: function reactiveSetter(val) {
-            _actions.setValueByPath(self._data, [path, key].join('.'), val)
+            // _actions.setValueByPath(self._storers, [path, key].join('.'), val)
             // // 触发watch
             // self._watchers[key] && self._watchers[key].emit(val)
           }
@@ -233,21 +232,18 @@ const _actions = {
    * @sicne 1.0.0
    *
    * @param {DataModel} self - 实例自身
-   * @param {object} data - 初始化数据
    */
-  init(self, data) {
+  init(self) {
     const ctr = self.constructor
 
     const UNION_STRUCTURE = _actions.getUnionStructure(self)
 
     Object.keys(UNION_STRUCTURE).forEach((key) => {
-      if (key in ctr.IMMUTABLE_STRUCTURE) {
-        // 不可变数据的字段
-        self._data[key] = _actions.getValue(ctr.IMMUTABLE_STRUCTURE[key])
-      } else {
+      const value = key in ctr.IMMUTABLE_STRUCTURE
+        ? _actions.getValue(ctr.IMMUTABLE_STRUCTURE[key])
+        : _actions.getValue(ctr.STRUCTURE[key], self.$options.data[key])
 
-        self._data[key] = _actions.getValue(ctr.STRUCTURE[key], data[key])
-      }
+      self._storers[key] = new Storer(value)
     })
 
     // 建立data的存取描述符
@@ -271,9 +267,7 @@ const _actions = {
 
     Object.entries(data).forEach(([key, value]) => {
       // 存在该键时，取出
-      if (UNION_STRUCTURE_LIST.indexOf(key) >= 0) {
-        pickedData[key] = value
-      }
+      if (UNION_STRUCTURE_LIST.indexOf(key) >= 0) pickedData[key] = value
     })
 
     return pickedData
@@ -290,12 +284,13 @@ class DataModel {
    * @readonly
    * @memberOf DataModel
    *
-   * @property {boolean} debug=false - 打印器调试模式是否开启
-   * @property {string} name='DataModel' - 打印器名称标记
+   * @type {object}
+   * @property {string} name='DataModel' - 日志打印器名称标记
+   * @property {boolean} debug=false - 日志打印器调试模式开启状态
    */
   static options = {
-    debug: false,
     name: 'DataModel',
+    debug: false,
   }
 
   /**
@@ -346,16 +341,15 @@ class DataModel {
    * @see DataModel.options
    *
    * @param {object} options - 其他配置选项见{@link DataModel.options}
-   * @param {object} [options.options={}] - 实始化数据
+   * @param {object} [options.data={}] - 实始化数据
    */
   constructor(options) {
     const ctr = this.constructor
 
     // 如果options是一个纯对象且存在data时，则表示他是一个配置对象，如果不含data，那么它的值将作为配置选项的data属性值
-
     if (options && validation.isPlainObject(options) && !validation.isPlainObject(options.data)) {
       options = {
-        data: options
+        data: options || {}
       }
     }
 
@@ -371,7 +365,7 @@ class DataModel {
     })
 
     // 数据初始化绑定
-    _actions.init(this, data)
+    _actions.init(this)
 
     return this
   }
@@ -443,7 +437,7 @@ class DataModel {
    *
    * @private
    */
-  _data = {}
+  _storers = {}
 
   /**
    * 获取实例的数据集合
@@ -460,7 +454,7 @@ class DataModel {
 
     let data = {}
     Object.keys(UNION_STRUCTURE).forEach((key) => {
-      data[key] = this._data[key]
+      data[key] = this._storers[key].$data
     })
 
     return data
@@ -495,7 +489,8 @@ class DataModel {
       return this
     }
 
-    this._data[key] = value
+    this._storers[key] && this._storers[key].update(value)
+    
     this.$updatedTimeStamp = new Date().getTime()
 
     return this
@@ -622,30 +617,30 @@ class DataModel {
    * @since 1.1.0
    *
    * @param {string} key - 要观察的字段名
-   * @param {object|function} options - 值类型为函数时，函数会当成watcher实例配置项的handler事件句柄
-   * @param {string} [options.data=undefined] - 初始数据值，会被JSON.stringify转换成字符串
-   * @param {boolean} [options.deep=false] - 是否深入观察数据变化
-   * @param {boolean} [options.immediate=false] - 是否立即执行一次事件句柄
-   * @param {function} [options.handler=()=>{]} - 观察事件句柄
+   * @param {object|function} options - 配置选项，配置选项见{@link Watcher.options}。若值类型为函数时，会被快捷指定为`options.handler`该配置项
    *
    * @returns {DataModel}
    */
   watch(key, options) {
-    // 设置实例化配置项
-    let watcherOptions = {
-      data: this[key] // 存储原数据
-    }
+    // watcher实例化配置项
+    let watcherOptions = {}
 
     if (validation.isFunction(options)) {
-      watcherOptions.handler = () => {
-        return options.call(this)
+      watcherOptions.handler = (...args) => {
+        return options.call(this, ...args)
       }
     } else {
       watcherOptions = { ...options }
-      watcherOptions.handler = () => {
-        return options.handler.call(this)
+
+      if (validation.isFunction(options.handler)) {
+        watcherOptions.handler = (...args) => {
+          return options.handler.call(this, ...args)
+        }
       }
     }
+
+    // 原数据
+    watcherOptions.data = this[key]
 
     // 实例化
     this._watchers[key] = new Watcher(watcherOptions)
