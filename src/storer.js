@@ -19,7 +19,7 @@ class Storer {
    * @property {function} handler=()=>{} - 观察事件句柄
    */
   static options = {
-    data: undefined,
+    value: undefined,
     // watcher: undefined,
     // computers: {},
     // get() {
@@ -33,10 +33,10 @@ class Storer {
    *
    * @see Storer.options
    *
-   * @param {object} data - 配置选项见{@link Storer.options}
+   * @param {object} value - 配置选项见{@link Storer.options}
    */
-  constructor(data) {
-    this.update(data)
+  constructor(value) {
+    this.update(value)
   }
 
   /**
@@ -48,16 +48,10 @@ class Storer {
    */
   // $options = undefined
 
-  _data = undefined
+  _value = undefined
 
-  get $data() {
-    return this._data
-  }
-
-  _watcher = undefined
-
-  get $watcher() {
-    return this._watcher
+  get $value() {
+    return this._value
   }
 
   _computers = {}
@@ -66,12 +60,8 @@ class Storer {
     return this._computers
   }
 
-  update(data) {
-    this._data = data
-  }
-
-  addWatcher(watcher) {
-    this._watcher = watcher
+  update(value) {
+    this._value = value
   }
 
   addComputer(key, computer) {

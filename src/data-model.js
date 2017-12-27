@@ -72,11 +72,11 @@ const _actions = {
   defineDataProperty(self) {
     Object.keys(self._storers).forEach((key) => {
       // 为了存取描述符的逻辑简单，条件判断移至外层
-      if (validation.isPlainObject(self._storers[key].$data)) {
+      if (validation.isPlainObject(self._storers[key].$value)) {
         // 对象需要递归
         Object.defineProperty(self, key, {
           get: function reactiveGetter() {
-            return _actions.recursiveDefineObjectProperty(self, key, self._storers[key].$data)
+            return _actions.recursiveDefineObjectProperty(self, key, self._storers[key].$value)
           },
 
           set: function reactiveSetter(val) {
@@ -89,12 +89,12 @@ const _actions = {
         // 不需要递归
         Object.defineProperty(self, key, {
           get: function reactiveGetter() {
-            return self._storers[key].$data
+            // 第一次调用，需要建立数据观察
+            return self._storers[key].$value
           },
 
           set: function reactiveSetter(val) {
             self._storers[key].update(val)
-            // 触发watch
             self._watchers[key] && self._watchers[key].emit(val)
           }
         })
@@ -453,8 +453,9 @@ class DataModel {
     const UNION_STRUCTURE = _actions.getUnionStructure(this)
 
     let data = {}
+
     Object.keys(UNION_STRUCTURE).forEach((key) => {
-      data[key] = this._storers[key].$data
+      data[key] = this._storers[key].$value
     })
 
     return data
@@ -490,7 +491,7 @@ class DataModel {
     }
 
     this._storers[key] && this._storers[key].update(value)
-    
+
     this.$updatedTimeStamp = new Date().getTime()
 
     return this
@@ -567,7 +568,7 @@ class DataModel {
     const UNION_STRUCTURE = _actions.getUnionStructure(this)
 
     if (Object.keys(UNION_STRUCTURE).indexOf(key) >= 0) {
-      this._logger.error(`compute key (${key}) has existed! please use other name`)
+      this._logger.error(`compute key (${key}) has already existed! please use another name.`)
     }
 
     // 设置实例化所需的配置选项
@@ -599,7 +600,13 @@ class DataModel {
     // todo 警告watch的值与别的值相同了
     Object.defineProperty(this, key, {
       get: function proxyComputedGetter() {
-        return self._computers[key].$value
+        const computer = self._computers[key]
+        const value = computer.$value
+
+        // 触发watch
+        self._watchers[key] && self._watchers[key].emit(value)
+
+        return value
       },
       set: function proxyComputedSetter(val) {
         return self._computers[key].$set(val)
@@ -643,7 +650,9 @@ class DataModel {
     watcherOptions.data = this[key]
 
     // 实例化
-    this._watchers[key] = new Watcher(watcherOptions)
+    const watcher = new Watcher(watcherOptions)
+
+    this._watchers[key] = watcher
 
     return this
   }

@@ -107,7 +107,8 @@ class Computer {
    */
   get $value() {
     // 重新计算
-    !this.$computed && this.$get()
+    // !this.$computed && this.$get()
+    this.$get()
 
     return this._value
   }
