@@ -23,11 +23,11 @@ const _actions = {
    * @returns {object}
    */
   getUnionStructure(self) {
-    const ctr = self.constructor
+    const ctor = self.constructor
 
     return {
-      ...ctr.STRUCTURE,
-      ...ctr.IMMUTABLE_STRUCTURE
+      ...ctor.STRUCTURE,
+      ...ctor.IMMUTABLE_STRUCTURE
     }
   },
   /**
@@ -61,88 +61,6 @@ const _actions = {
 
       return result[key]
     }, target)
-  },
-  /**
-   * 递归定义对象的存取描述符
-   *
-   * @since 1.0.0
-   *
-   * @param {DataModel} self - 实例自身
-   */
-  defineDataProperty(self) {
-    Object.keys(self._storers).forEach((key) => {
-      // 为了存取描述符的逻辑简单，条件判断移至外层
-      if (validation.isPlainObject(self._storers[key].$value)) {
-        // 对象需要递归
-        Object.defineProperty(self, key, {
-          get: function reactiveGetter() {
-            return _actions.recursiveDefineObjectProperty(self, key, self._storers[key].$value)
-          },
-
-          set: function reactiveSetter(val) {
-            self._storers[key].update(val)
-            // 触发watch
-            self._watchers[key] && self._watchers[key].emit(val)
-          }
-        })
-      } else {
-        // 不需要递归
-        Object.defineProperty(self, key, {
-          get: function reactiveGetter() {
-            // 第一次调用，需要建立数据观察
-            return self._storers[key].$value
-          },
-
-          set: function reactiveSetter(val) {
-            self._storers[key].update(val)
-            self._watchers[key] && self._watchers[key].emit(val)
-          }
-        })
-      }
-    })
-  },
-  /**
-   * 递归定义对象数据的存取描述符
-   *
-   * @since 1.0.0
-   *
-   * @param {DataModel} self - 实例自身
-   * @param {string} path - 路径
-   * @param {object} data - 取值对象
-   *
-   * @returns {object}
-   */
-  recursiveDefineObjectProperty(self, path, data) {
-    const objTemp = {}
-
-    Object.keys(data).forEach((key) => {
-      // 为了存取描述符的逻辑简单，条件判断移至外层
-      if (validation.isPlainObject(data[key])) {
-        Object.defineProperty(objTemp, key, {
-          get: function reactiveGetter() {
-            return _actions.recursiveDefineObjectProperty(self, [path, key].join('.'), data[key])
-          },
-
-          set: function reactiveSetter(val) {
-            // _actions.setValueByPath(self._storers, [path, key].join('.'), val)
-          }
-        })
-      } else {
-        Object.defineProperty(objTemp, key, {
-          get: function reactiveGetter() {
-            return data[key]
-          },
-
-          set: function reactiveSetter(val) {
-            // _actions.setValueByPath(self._storers, [path, key].join('.'), val)
-            // // 触发watch
-            // self._watchers[key] && self._watchers[key].emit(val)
-          }
-        })
-      }
-    })
-
-    return objTemp
   },
   /**
    * 深拷贝数据
@@ -227,6 +145,109 @@ const _actions = {
     return _actions.cloneDeep(defaultVal)
   },
   /**
+   * 递归定义对象的存取描述符
+   *
+   * @since 1.0.0
+   *
+   * @param {DataModel} self - 实例自身
+   */
+  defineDataProperty(self) {
+    Object.keys(self._storers).forEach((key) => {
+      // 为了存取描述符的逻辑简单，条件判断移至外层
+      if (validation.isPlainObject(self._storers[key].$value)) {
+        // 若为对象时，则需要递归
+        Object.defineProperty(self, key, {
+          get: function reactiveGetter() {
+            return _actions.recursiveDefineObjectProperty(self, key, self._storers[key].$value)
+          },
+
+          set: function reactiveSetter(val) {
+            // 若对象本身被重新设置值，则需要重新构建getter
+            self._storers[key].update(val)
+
+            if (validation.isPlainObject(val)) {
+              Object.defineProperty(self, key, {
+                get: function reactiveGetter() {
+                  // return _actions.recursiveDefineObjectProperty(self, key, self._storers[key].$value)
+                },
+              })
+            } else {
+              console.log('123123123', self, key)
+              Object.defineProperty(self, key, {
+                get: function reactiveGetter() {
+                  return self._storers[key].$value
+                },
+                // set: function reactiveGetter() {
+                //   self._storers[key].update(val)
+                // },
+              })
+            }
+
+            // _actions.recursiveDefineObjectProperty(self, key, self._storers[key].$value)
+            // 触发watch
+            // self._watchers[key] && self._watchers[key].emit(val)
+          }
+        })
+      } else {
+        // 不需要递归
+        Object.defineProperty(self, key, {
+          get: function reactiveGetter() {
+            // 第一次调用，需要建立数据观察
+            return self._storers[key].$value
+          },
+
+          set: function reactiveSetter(val) {
+            self._storers[key].update(val)
+            self._watchers[key] && self._watchers[key].emit(val)
+          }
+        })
+      }
+    })
+  },
+  /**
+   * 递归定义对象数据的存取描述符
+   *
+   * @since 1.0.0
+   *
+   * @param {DataModel} self - 实例自身
+   * @param {string} path - 路径
+   * @param {object} data - 取值对象
+   *
+   * @returns {object}
+   */
+  recursiveDefineObjectProperty(self, path, data) {
+    const objTemp = {}
+
+    Object.keys(data).forEach((key) => {
+      // 为了存取描述符的逻辑简单，条件判断移至外层
+      if (validation.isPlainObject(data[key])) {
+        Object.defineProperty(objTemp, key, {
+          get: function reactiveGetter() {
+            return _actions.recursiveDefineObjectProperty(self, [path, key].join('.'), data[key])
+          },
+
+          set: function reactiveSetter(val) {
+            // _actions.setValueByPath(self._storers, [path, key].join('.'), val)
+          }
+        })
+      } else {
+        Object.defineProperty(objTemp, key, {
+          get: function reactiveGetter() {
+            return data[key]
+          },
+
+          set: function reactiveSetter(val) {
+            // _actions.setValueByPath(self._storers, [path, key].join('.'), val)
+            // // 触发watch
+            // self._watchers[key] && self._watchers[key].emit(val)
+          }
+        })
+      }
+    })
+
+    return objTemp
+  },
+  /**
    * 初始化数据，并定义存取描述符
    *
    * @sicne 1.0.0
@@ -234,14 +255,14 @@ const _actions = {
    * @param {DataModel} self - 实例自身
    */
   init(self) {
-    const ctr = self.constructor
+    const ctor = self.constructor
 
     const UNION_STRUCTURE = _actions.getUnionStructure(self)
 
     Object.keys(UNION_STRUCTURE).forEach((key) => {
-      const value = key in ctr.IMMUTABLE_STRUCTURE
-        ? _actions.getValue(ctr.IMMUTABLE_STRUCTURE[key])
-        : _actions.getValue(ctr.STRUCTURE[key], self.$options.data[key])
+      const value = key in ctor.IMMUTABLE_STRUCTURE
+        ? _actions.getValue(ctor.IMMUTABLE_STRUCTURE[key])
+        : _actions.getValue(ctor.STRUCTURE[key], self.$options.data[key])
 
       self._storers[key] = new Storer(value)
     })
@@ -274,6 +295,11 @@ const _actions = {
   },
 }
 
+/**
+ * @classdesc 数据模型类
+ *
+ * @class
+ */
 class DataModel {
   /**
    * 默认配置选项
@@ -305,13 +331,13 @@ class DataModel {
    * @param {object} options - 配置选项见{@link DataModel.options}
    */
   static config(options) {
-    const ctr = this
-    ctr.options = {
-      ...ctr.options,
+    const ctor = this
+    ctor.options = {
+      ...ctor.options,
       ...options
     }
 
-    return ctr
+    return ctor
   }
 
   /**
@@ -344,7 +370,7 @@ class DataModel {
    * @param {object} [options.data={}] - 实始化数据
    */
   constructor(options) {
-    const ctr = this.constructor
+    const ctor = this.constructor
 
     // 如果options是一个纯对象且存在data时，则表示他是一个配置对象，如果不含data，那么它的值将作为配置选项的data属性值
     if (options && validation.isPlainObject(options) && !validation.isPlainObject(options.data)) {
@@ -354,7 +380,7 @@ class DataModel {
     }
 
     this.$options = {
-      ...ctr.options,
+      ...ctor.options,
       ...options
     }
 
@@ -462,6 +488,9 @@ class DataModel {
   }
 
   /**
+   *
+   * [移除该方法]
+   *
    * 设置实例属性的新数据
    * 1. 若指定的键名存在于实例模型不可变数据结构中，则无法被设置为新数据，并会抛出警告提醒
    * 2. 若指定的键名存在不存在于实例模型数据结构中，则会过滤，则抛出警告提醒
@@ -477,15 +506,15 @@ class DataModel {
    */
   setValue(key, value) {
     // 获取继承类构造函数
-    const ctr = this.constructor
+    const ctor = this.constructor
 
     // 若键名存在于不可变枚举中，则不覆盖，并抛出提示
-    if (key in ctr.IMMUTABLE_STRUCTURE) {
+    if (key in ctor.IMMUTABLE_STRUCTURE) {
       this._logger.warn(`(${key}) key is not writable! please check.`)
       return this
     }
 
-    if (!(key in ctr.STRUCTURE)) {
+    if (!(key in ctor.STRUCTURE)) {
       this._logger.warn(`(${key}) key is not exist! please check.`)
       return this
     }
@@ -507,7 +536,7 @@ class DataModel {
    *
    * @returns {DataModel}
    */
-  updateData(data) {
+  update(data) {
     // 过滤掉不存于数据模型结构中的字段
     const pickedData = _actions.pickData(this, data)
 
@@ -531,18 +560,18 @@ class DataModel {
    * @returns {DataModel}
    */
   extend(options) {
-    const ctr = this.constructor
+    const ctor = this.constructor
     const ExtendClass = function (data) {
-      // return new ctr(data)
-      // ctr.apply(this, []) //第二次调用父类构造函数
+      // return new ctor(data)
+      // ctor.apply(this, []) //第二次调用父类构造函数
     }
 
     ExtendClass.STRUCTURE = {
-      ...ctr.STRUCTURE,
+      ...ctor.STRUCTURE,
       ...options.STRUCTURE
     }
 
-    ExtendClass.prototype = new ctr()
+    ExtendClass.prototype = new ctor()
     ExtendClass.prototype.constructor = ExtendClass
 
     return ExtendClass
@@ -650,9 +679,7 @@ class DataModel {
     watcherOptions.data = this[key]
 
     // 实例化
-    const watcher = new Watcher(watcherOptions)
-
-    this._watchers[key] = watcher
+    this._watchers[key] = new Watcher(watcherOptions)
 
     return this
   }

@@ -54,19 +54,19 @@ class Storer {
     return this._value
   }
 
-  _computers = {}
-
-  get $computers() {
-    return this._computers
-  }
+  // _computers = {}
+  //
+  // get $computers() {
+  //   return this._computers
+  // }
 
   update(value) {
     this._value = value
   }
 
-  addComputer(key, computer) {
-    this._computers[key] = computer
-  }
+  // addComputer(key, computer) {
+  //   this._computers[key] = computer
+  // }
 }
 
 export default Storer

@@ -130,17 +130,17 @@ const _ = {
    * @param {object} data - 初始化数据
    */
   init(self, data) {
-    const ctr = self.constructor
+    const ctor = self.constructor
 
     const UNION_STRUCTURE = _actions.getUnionStructure(self)
 
     Object.keys(UNION_STRUCTURE).forEach((key) => {
-      if (key in ctr.IMMUTABLE_STRUCTURE) {
+      if (key in ctor.IMMUTABLE_STRUCTURE) {
         // 不可变数据的字段
-        self._data[key] = _actions.getValue(ctr.IMMUTABLE_STRUCTURE[key])
+        self._data[key] = _actions.getValue(ctor.IMMUTABLE_STRUCTURE[key])
       } else {
 
-        self._data[key] = _actions.getValue(ctr.STRUCTURE[key], data[key])
+        self._data[key] = _actions.getValue(ctor.STRUCTURE[key], data[key])
       }
     })
 
