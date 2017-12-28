@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Home - Documentation</title>
+
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Computer.html">Computer</a></li><li><a href="DataModel.html">DataModel</a><ul class='methods'><li data-type='method'><a href="DataModel.html#.config">config</a></li><li data-type='method'><a href="DataModel.html#setValue">setValue</a></li><li data-type='method'><a href="DataModel.html#update">update</a></li><li data-type='method'><a href="DataModel.html#extend">extend</a></li><li data-type='method'><a href="DataModel.html#computed">computed</a></li><li data-type='method'><a href="DataModel.html#watch">watch</a></li></ul></li><li><a href="Storer.html">Storer</a></li><li><a href="Watcher.html">Watcher</a><ul class='methods'><li data-type='method'><a href="Watcher.html#emit">emit</a></li></ul></li></ul>
+</nav>
+
+<div id="main">
+    
+
+    
+
+
+
+    
+
+
+
+
+
+
+
+
+
+    
+
+
+    <section class="readme">
+        <article><h1 id="datamodel">DataModel</h1>
+<h2 id="-">数据模型类</h2>
+<p><a href="https://lisfan.github.io/data-model/">API documentation</a></p>
+<h2 id="feature-">Feature 特性</h2>
+<ul>
+<li>模仿vue的model操作风格</li>
+<li>支持computed</li>
+<li>支持watch</li>
+</ul>
+<ul>
+<li><ul>
+<li><ul>
+<li>可以自定义业务对象的数据结构</li>
+</ul>
+</li>
+<li><ul>
+<li>可以自定义业务对象的数据结构</li>
+</ul>
+</li>
+<li><ul>
+<li>这样可以明确自己想要的数据，精简数据结构，过滤掉后端接口无用的数据，同时在最后可让后端删除无用的数据字段</li>
+</ul>
+</li>
+<li><ul>
+<li>同时提前确定你想要的基础数据响应结构，避免后期插入新响应数据带来影响和麻烦（当然也会失去部分扩展性）</li>
+</ul>
+</li>
+<li><ul>
+<li>也可以对接口字段名称作映射，改变接口中你不舒服的字段名称，从而使用自定义的名称</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>用来管理和操作业务对象抽象化后的数据模型</li>
+<li>不提供移除字段的api，你可以设置为undefined或者null</li>
+<li>computed功能</li>
+<li>惰性求值的</li>
+<li>watch功能</li>
+<li>处理todo</li>
+<li>优化实例数据模型值合并方式，只取存在数据模型中的值</li>
+</ul>
+<h2 id="detail-">Detail 详情</h2>
+<ul>
+<li>该类应该作为基类，被其它具体的业务操作对象类所继承</li>
+<li>数据模型的结构在实例化时就已经定好格式，若传进去的数据字段不存在于数据模型结构中，将会被忽略（这样有利于你精简或者规划你想要的数据结构）</li>
+</ul>
+<h2 id="install-">Install 安装</h2>
+<pre class="prettyprint source lang-bash"><code>npm install -S @~lisfan/data-model</code></pre><h2 id="usage-">Usage 起步</h2>
+<pre class="prettyprint source lang-js"><code>import EventQueues from '@~lisfan/data-model'
+
+const eventQueues = new EventQueues({
+  debug: true, // 开始日志调式，默认false
+  name: 'custom', // 设置日志器名称标记，默认值为'EventQueues'
+  separator: '.', // 子命名空间的分割符，默认'.'
+})
+
+// 绑定主命名空间
+eventQueues.on('name', (val) => {
+  console.log('name', val)
+})
+// 绑定具体的子命名空间
+eventQueues.on('name.subname', (preResult) => {
+  console.log('name.subname', preResult)
+})
+
+// 绑定多个具体的子命名空间
+eventQueues.on('name.subname.subname2', (preResult) => {
+  console.log('name.subname.subname2', preResult)
+})
+
+// 指定事件函数
+const specFun = () => {
+  console.log('specFun')
+}
+
+// 绑定指定事件
+eventQueues.on('name.subname3', specFun)
+
+// 移除该子命名空间下指定事件队列项
+eventQueues.off('name.subname3', specFun)
+
+// 移除该子命名空间下所有队列
+eventQueues.off('name.subname')
+
+// 执行主命名空间下的队列事件
+eventQueues.emit('name', 'firstArg', 'secondArg').then((result) => {
+  console.log('emit result', result)
+})</code></pre></article>
+    </section>
+
+
+
+
+
+
+
+
+
+<section>
+
+<header>
+    
+        <h2>
+        computer.js
+        </h2>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+
+<dl class="details">
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="computer.js.html">computer.js</a>, <a href="computer.js.html#line1">line 1</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+        
+            <div class="description"><p>计算类</p></div>
+        
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+
+     
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+
+
+
+<section>
+
+<header>
+    
+        <h2>
+        data-model.js
+        </h2>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+
+<dl class="details">
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="data-model.js.html">data-model.js</a>, <a href="data-model.js.html#line1">line 1</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+        
+            <div class="description"><p>数据模型类</p></div>
+        
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+
+     
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+
+
+
+<section>
+
+<header>
+    
+        <h2>
+        extend-data-model.js
+        </h2>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+
+<dl class="details">
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="extend-data-model.js.html">extend-data-model.js</a>, <a href="extend-data-model.js.html#line1">line 1</a>
+    </li></ul></dd>
+    
+
+    
+    <dt class="tag-version">Version:</dt>
+    <dd class="tag-version"><ul class="dummy"><li>1.1.0</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-author">Author:</dt>
+    <dd class="tag-author">
+        <ul>
+            <li><a href="mailto:goolisfan@gmail.com">lisfan</a></li>
+        </ul>
+    </dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+        
+            <div class="description"><p>数据模型类</p></div>
+        
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+
+     
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+
+
+
+<section>
+
+<header>
+    
+        <h2>
+        storer.js
+        </h2>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+
+<dl class="details">
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="storer.js.html">storer.js</a>, <a href="storer.js.html#line1">line 1</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+        
+            <div class="description"><p>数据存储类</p></div>
+        
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+
+     
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+
+
+
+<section>
+
+<header>
+    
+        <h2>
+        utils/utils.js
+        </h2>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+
+<dl class="details">
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="utils_utils.js.html">utils/utils.js</a>, <a href="utils_utils.js.html#line1">line 1</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+        
+            <div class="description"><p>数据模型类</p></div>
+        
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+
+     
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+
+
+
+<section>
+
+<header>
+    
+        <h2>
+        watcher.js
+        </h2>
+        
+    
+</header>
+
+<article>
+    <div class="container-overview">
+    
+        
+
+<dl class="details">
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="watcher.js.html">watcher.js</a>, <a href="watcher.js.html#line1">line 1</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+        
+            <div class="description"><p>值观察类</p></div>
+        
+
+        
+    
+    </div>
+
+    
+
+    
+
+    
+
+     
+
+    
+
+    
+
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.5.5</a> on Thu Dec 28 2017 09:46:04 GMT+0800 (CST) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+</body>
+</html>
